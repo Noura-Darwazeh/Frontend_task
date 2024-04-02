@@ -1,31 +1,27 @@
 let blobs = [];
-let isMobile = false;
+let isTouch = false;
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
   for (let i = 0; i < 3; i++) {
     let x = random(width);
     let y = random(height);
-    let radius = random(50, 100);
+    let radius = random(20, 50);     
     let color = randomBlobColor();
     let blob = new Blob(x, y, radius, color);
     blobs.push(blob);
   }
-
-
-  if (/Mobi|Android/i.test(navigator.userAgent)) {
-    isMobile = true;
-    if (window.DeviceOrientationEvent) {
-      window.addEventListener('deviceorientation', handleOrientation);
-    }
+  
+  if ('ontouchstart' in window || navigator.maxTouchPoints) {
+    isTouch = true;
   }
 }
 
 function draw() {
   background(255);
   for (let blob of blobs) {
-    if (isMobile) {
-      blob.moveMobile();
+    if (isTouch) {
+      blob.moveTouch();
     } else {
       blob.move();
     }
@@ -47,15 +43,10 @@ function randomBlobColor() {
   return color(random(255), random(255), random(255));
 }
 
-function handleOrientation(event) {
-  orientationData = event;
-}
-
 class Blob {
   constructor(x, y, radius, color) {
     this.pos = createVector(x, y);
-    this.vel = p5.Vector.random2D();
-    this.vel.mult(random(3));
+    this.vel = createVector(random(-1, 1), random(-1, 1)).mult(3);
     this.radius = radius;
     this.color = color;
   }
@@ -63,22 +54,18 @@ class Blob {
   move() {
     this.pos.add(this.vel);
   }
-
-  moveMobile() {
-    if (orientationData) {
-      let dx = map(orientationData.gamma, -90, 90, -5, 5);
-      let dy = map(orientationData.beta, -90, 90, -5, 5);
-      this.pos.add(createVector(dx, dy));
-    } else {
-      this.move();
-    }
+  
+  moveTouch() {
+    this.vel = createVector(mouseX - this.pos.x, mouseY - this.pos.y).mult(0.1);
+    this.pos.add(this.vel);
   }
 
   showBlob() {
     noStroke();
     fill(this.color);
-    ellipse(this.pos.x, this.pos.y, this.radius * 2);
+    circle(this.pos.x, this.pos.y, this.radius * 2);
   }
+  
 
   checkEdges() {
     if (this.pos.x + this.radius >= width || this.pos.x - this.radius <= 0) {
@@ -92,9 +79,11 @@ class Blob {
   handleCollide(other) {
     let d = dist(this.pos.x, this.pos.y, other.pos.x, other.pos.y);
     if (d < this.radius + other.radius) {
-      let temp = this.vel;
-      this.vel = other.vel;
-      other.vel = temp;
+      let totalRadius = this.radius + other.radius;
+      let overlap = totalRadius - d;
+      let direction = createVector(other.pos.x - this.pos.x, other.pos.y - this.pos.y).normalize();
+      this.pos.sub(direction.copy().mult(overlap * 0.5));
+      other.pos.add(direction.copy().mult(overlap * 0.5));
     }
   }
 }
